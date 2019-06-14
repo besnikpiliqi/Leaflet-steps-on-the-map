@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+	<title>Leaflet steps</title>
+
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.5.1/dist/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.5.1/dist/leaflet.js" integrity="sha512-GffPMF3RvMeYyc1LWMHtK8EbPv0iNZ8/oTtHPx9/cc2ILxQ+u905qIwdpULaqDkyBKgOaB57QTMg7ztg8Jm2Og==" crossorigin=""></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js" type="text/javascript"></script>
+
+<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+		}
+		#mapid { height: 600px; width: 500px; }
+
+</style>
+</head>
+<body>
+
+
+
+<div id="mapid" ></div>
+<script>
+	// id mapbox
+	// mapbox.streets
+	// mapbox.light
+	// mapbox.dark
+	// mapbox.satellite
+	// mapbox.streets-satellite
+	// mapbox.wheatpaste
+	// mapbox.streets-basic
+	// mapbox.comic
+	// mapbox.outdoors
+	// mapbox.run-bike-hike
+	// mapbox.pencil
+	// mapbox.pirates
+	// mapbox.emerald
+	// mapbox.high-contrast
+	
+
+	var mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}';
+	var attribution = 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>';
+	var accesstoken = 'pk.eyJ1IjoiYmVzbmlrcGlsaXFpIiwiYSI6ImNqd28xM2Q0MDAxYnM0OXA1YWNhdWowaDQifQ.nv_z6rKQHEEFx-JKN5jKFg';
+	var earthUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+	var earthAttr = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
+	// layer
+	var	streets  = L.tileLayer(mbUrl, {id: 'mapbox.streets',accessToken:accesstoken, attribution: attribution});
+	var light   = L.tileLayer(mbUrl, {id: 'mapbox.light',accessToken:accesstoken, attribution: attribution});
+	var	earth  = L.tileLayer(earthUrl, { attribution: earthAttr});
+
+	var map = L.map('mapid').fitWorld();
+
+	streets.addTo(map);
+
+	var setLine = function(e){
+ 		this.startPoint = null,
+ 		this.endPoint = null,
+ 		this.startMarker = null,
+ 		this.endMarker = null,
+ 		this.startLine = 0,
+ 		this.caluleLine = 0,
+ 		this.polylines = [],
+ 		this.endLine = 0;
+ 		this.endLine = 0;
+ 		this.diffmetters = 0;
+ 		this.newLine = L.layerGroup();
+ 	}
+
+ 	var metterDistance = new setLine();
+
+	function onLocationFound(e) {
+		var radius = e.accuracy / 2;
+		metterDistance.startMarker = metterDistance.endPoint = metterDistance.startLine = e.latlng;
+		metterDistance.startMarker = L.marker(e.latlng,{draggable:true}).addTo(map).bindPopup("You are within " + radius + " meters from this point");
+		L.circle(e.latlng,  {
+		  radius: radius,
+		  color: 'black',
+		  weight: 2,
+		  opacity: 1,
+		  fillColor: 'red',
+		  fillOpacity: 1.0
+		}).addTo(map).bindPopup("I am a polygon.");
+		map.setView(e.latlng,13);
+	}
+	map.on('locationfound', onLocationFound);
+	map.locate({setView: true,setZoom:13});
+
+ 	
+ 	map.on("click",function(e){
+ 		metterDistance.endLine = e.latlng;
+ 		if(metterDistance.startLine){
+ 			polylines = L.polyline([metterDistance.startLine,metterDistance.endLine]);
+ 			metterDistance.newLine.addLayer(polylines).addTo(map);/* here we add the polylines on the L.layerGroup() on each clicks on the map */
+
+ 			metterDistance.polylines.push(polylines);
+ 			polylines.getLatLngs().forEach(function(latlng){
+ 				metterDistance.caluleLine += metterDistance.endLine.distanceTo(latlng);/* this is for calculate the metres with each polylines */
+ 			});
+ 		}
+ 		if(metterDistance.startPoint === null && metterDistance.endPoint === null){
+ 			metterDistance.startLine/* <= here is for polylines for know if have already one marker*/ = metterDistance.startPoint = e.latlng;
+ 			if(metterDistance.startMarker){
+ 				metterDistance.startMarker.remove();
+ 			}/* we remove the first icon marker that we can restart with new icon */
+	 		metterDistance.startMarker = L.marker(metterDistance.startPoint).addTo(map).bindPopup("Start on 0 meter");
+ 		}else{
+ 			metterDistance.diffmetters = metterDistance.caluleLine.toFixed(2);
+ 			metterDistance.endPoint = e.latlng;
+			if(metterDistance.endMarker){
+				metterDistance.endMarker.remove();
+			}/* we remove the second icon marker that we can restart with new icon */
+			
+ 			metterDistance.endMarker = L.marker(metterDistance.endPoint).addTo(map).bindPopup("end on "+metterDistance.diffmetters+" meters").openPopup();
+ 		}
+ 		metterDistance.startLine/*this is for start the polylines*/ = metterDistance.endPoint/*here we put the last point that it have the last position where it restart the new polylines*/ || metterDistance.endLine/*here we have put endLine because if we have not yet endPoint we put endLine for start the polylines from 0*/;
+ 	
+		// this is if we want delete all markers that we have put
+		// here i have put the count length but it need to make the function "in the div on the body" for remove these markers
+		// it need to make the L.control.layer(),that we can touch on the layer control for remove
+		if(metterDistance.polylines.length > 10){
+			
+			metterDistance.newLine.clearLayers();
+			metterDistance.startLine = 0;// here the startLine we put 0 that we can restart the line from 0
+			metterDistance.endLine = 0;// here the endLine we put 0 that we can restart the line from 0
+			metterDistance.startPoint = null;// here the startPoint we put null that we can restart the position from 0
+			metterDistance.endPoint = null;// herethe endPoint we put null that we can restart the position from 0
+			metterDistance.startMarker.remove();// we remove the fisrt icon marker that we can restart with new icon starter
+			metterDistance.endMarker.remove();// we remove the seocond icon marker that we can restart with new icon
+			metterDistance.caluleLine = 0;// here we set 0 for meters when we remove markers
+			metterDistance.polylines = [];// with this we can count how much markers we have put,but here if we remove the markers it need to put [] to empty;
+		}
+	});
+
+
+</script>
+
+
+
+</body>
+</html>
